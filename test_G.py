@@ -18,8 +18,8 @@ from batch_utils import ImageTransformationBatchLoader_Testing
 
 def init_parameters():
     tc, vc = ConfigObj(), ConfigObj()
-    tc.image_path = 'C:\\Users\\sofia\\OneDrive\\Desktop\\sofia_necrosis_project\\data\\BF\\*.npy'
-    vc.image_path = 'C:\\Users\\sofia\\OneDrive\\Desktop\\sofia_necrosis_project\\data\\BF\\*.npy'
+    tc.image_path = 'G:\\Project_Nectrotic\\Data\\ProcessingData\\RegistrationRound2_crops\\NPY\\NonNecrotic\\sample4B\\BF\\*.npy'
+    vc.image_path = 'G:\\Project_Nectrotic\\Data\\ProcessingData\\RegistrationRound2_crops\\NPY\\NonNecrotic\\sample4B\\BF\\*.npy'
     #tc.image_path = 'I:\\covid_dataset_test\\Second_reg\\SP20-44-001\\target_2048\\*.mat'
     #vc.image_path = 'I:\\covid_dataset_test\\Second_reg\\SP20-44-001\\target_2048\\*.mat'
     # tc.image_path = 'I:\\Pneumonia_Dataset\\Second_reg\\Testing\\AAW-18-00044-A6_wait\\target\\*.mat'
@@ -66,8 +66,8 @@ def init_parameters():
 if __name__ == '__main__':
     # paths
     #model_path = 'G:/Regstain_Code/code/stage2_20220727_G&RSeperateTrain_initIter=0'
-    checkpoint_path = 'C:\\Users\\sofia\\OneDrive\\Desktop\\sofia_necrosis_project\\model\\42000'
-    output_path = 'C:\\Users\\sofia\\OneDrive\\Desktop\\sofia_necrosis_project\\output\\'
+    checkpoint_path = 'C:\\Users\\76\\sofia_necrosis_project\\model\\42000'
+    output_path = 'C:\\Users\\76\\sofia_necrosis_project\\output\\'
     # model_path = 'G:/Regstain_Code/code/stage2_20220727_G&RSeperateTrain_initIter=0'
     # checkpoint_path = model_path + '/model_G_iter=87700.h5'
     # output_path = model_path + '/outputs_G_iter=87700_AAW-18-00044-A6_good/'
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                           atten_activation='ReLU', attention='add',
                           output_activation=None, batch_norm=True, pool='ave', unpool='bilinear')
     checkpoint = tf.train.Checkpoint(model=model_G)
-    checkpoint.restore(checkpoint_path) # MIGHT HAVE TO FIX LATER IF THE FILE TYPES ARE INCOMPATIBLE
+    checkpoint.restore(checkpoint_path) 
 
     ssim_list = []
     psnr_list = []
@@ -106,8 +106,8 @@ if __name__ == '__main__':
     for i in tqdm(range(len(test_images) // tc.batch_size)):
         valid_x, valid_y = next(iterator_valid_bl)
 
-        with tf.device('/cpu:0'):
-        #with tf.device('/gpu:0'):
+        #with tf.device('/cpu:0'):
+        with tf.device('/gpu:0'):
             valid_output = model_G(valid_x, training=False).numpy()
 
         for j in range(tc.batch_size):
@@ -132,6 +132,7 @@ if __name__ == '__main__':
                        + cur_case_name + '_' + cur_out_img_name,
                        valid_output_temp)
             valid_y_temp = np.nan_to_num(valid_y_temp)
+            valid_y_temp = valid_y_temp.astype(np.uint8)
             plt.imsave(output_path + '/label/'
                        + cur_case_name + '_' + cur_out_img_name,
                        valid_y_temp)
