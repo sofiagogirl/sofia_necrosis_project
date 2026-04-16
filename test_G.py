@@ -114,7 +114,7 @@ if __name__ == '__main__':
             valid_output_temp = np.clip(valid_output[j], 0, 1)
             valid_x_temp = tf.concat([valid_x[j, :, :, 0:2], valid_x[j, :, :, 3:4]], axis=-1)
             valid_x_temp = (valid_x_temp / tf.reduce_max(valid_x_temp)).numpy()
-            valid_y_temp = valid_y.numpy() * 255
+            valid_y_temp = valid_y.numpy() * 255 
             valid_y_temp = valid_y_temp[j]
             valid_image_path = test_images[i * tc.batch_size + j]
 

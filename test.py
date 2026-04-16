@@ -125,6 +125,7 @@ if __name__ == '__main__':
         #images = glob.glob('G:/Transplant/reg_network_code/second_TileReg/target/*.npy')
         #images = glob.glob('F:/Transplant-lung/First_reg_crop/SP20-917-001/input_pro/*.npy')
         images = glob.glob('G:\\Project_Nectrotic\\Data\\ProcessingData\\RegistrationRound2_crops\\NPY\\NonNecrotic\\sample4B\\AF\\*.npy')
+        images = images[:3]
         print(images)
         input_ = tf.placeholder(tf.float32, shape=[2048, 2048, 4])
         #devices = ops.get_available_gpus()
@@ -160,9 +161,31 @@ if __name__ == '__main__':
                 x[:,:,0] = image_af[:,:,0]  
                 x[:,:,3] = image_af[:,:,3]  
 
+                #trying to clip
+                clip0 = 30000
+                clip3 = 30000
+                x[:,:,0] = np.clip(x[:,:,0], 0, clip0)
+                x[:,:,3] = np.clip(x[:,:,3], 0, clip3)
+
                 image_temp =  (x.copy())
+
+                # TRYING DIFFERENT NORMALIZATIONS BY CHANNEL
+
+                # z score normalization
+                #x[:,:,0] = (x[:,:,0] - np.mean(x[:,:,0]))/(np.std(x[:,:,0]))
+                #x[:,:,3] = (x[:,:,3] - np.mean(x[:,:,3]))/(np.std(x[:,:,3]))
+
+                # min-max normalization
+                #x[:,:,0] = (x[:,:,0] - np.min(x[:,:,0]))/(np.max(x[:,:,0]) - np.min(x[:,:,0]))
+                #x[:,:,3] = (x[:,:,3] - np.min(x[:,:,3]))/(np.max(x[:,:,3]) - np.min(x[:,:,3]))
+
+                # [-1,1] normalization
+                x[:,:,0] = (x[:,:,0] - np.min(x[:,:,0]))/(np.max(x[:,:,0]) - np.min(x[:,:,0]))*2 - 1
+                x[:,:,3] = (x[:,:,3] - np.min(x[:,:,3]))/(np.max(x[:,:,3]) - np.min(x[:,:,3]))*2 - 1
+
+
                 # for j in range(4):
-                x[:,:] = (image_temp[:,:] - np.mean(image_temp[:,:]))/(np.std(image_temp[:,:]))
+                #x[:,:] = (image_temp[:,:] - np.mean(image_temp[:,:]))/(np.std(image_temp[:,:]))
                 # xx=np.rot90(x,0)
                 # x = x/65535 * 2 - 1
                 xx=x
