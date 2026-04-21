@@ -2,8 +2,8 @@ import tensorflow as tf
 import numpy as np
 from scipy import ndimage, misc
 from scipy.io import loadmat
-from tensorflow_addons import image
-from tensorflow_addons.image import translate
+#from tensorflow_addons import image
+#from tensorflow_addons.image import translate
 import random
 import glob
 
@@ -82,19 +82,14 @@ class ImageTransformationBatchLoader(BatchLoader):
         start, end = self.config.channel_start_index, self.config.channel_end_index
         path = path.decode('UTF-8')
 
-        if self.config.is_mat:
-            # image = loadmat(path.replace('target', 'input'))['input'].astype(np.float32)[:, :, start:end]
-            try:
-                image = loadmat(self.config.convert_inp_path_from_target(path))['input_tile'].astype(np.float32)[:, :, start:end]
-                label = loadmat(path)['target_tile'].astype(np.float32) #/ 255.0
-            except:
-                print(self.config.convert_inp_path_from_target(path))
-        else:
-            # image = np.transpose(np.load(path.replace('target', 'input')).astype(np.float32)[start:end, :, :], axes=[1, 2, 0])
-            image = np.transpose(
-                np.load(self.config.convert_inp_path_from_target(path)).astype(np.float32)[:, :, start:end],
-                axes=[1, 2, 0])
-            label = np.transpose(np.load(path).astype(np.float32), axes=[1, 2, 0]) #/ 255.0
+        input_path = self.config.convert_inp_path_from_target(path)
+        
+        label = np.load(path).astype(np.float32) / 255.0 # BF - ensure gradients do not explode due to activation functions by dividing by 255
+        image = np.load(input_path).astype(np.float32) # AF
+
+        # perform top left crop to get AF image down to BF dimensions
+        h_target, w_target = label.shape[0], label.shape[1]
+        image = image[:h_target, :w_target, :]
 
         if self.config.data_inpnorm == 'norm_by_specified_value':
             normalize_vector = [1500, 1500, 1500, 1000]
@@ -102,8 +97,6 @@ class ImageTransformationBatchLoader(BatchLoader):
             image = image / normalize_vector
         elif self.config.data_inpnorm == 'norm_by_mean_std':
             image = (image - np.mean(image)) / (np.std(image) + 1e-5)
-        elif self.config.data_inpnorm == 'scaling':
-            image = (image / 65535) * 2 - 1
 
         crop_edge = 30
         image = image[crop_edge:-crop_edge, crop_edge:-crop_edge, :]
@@ -120,8 +113,8 @@ class ImageTransformationBatchLoader(BatchLoader):
                 xx = min(x + rand_choice_stride * s // 16, size - s)
                 yy = min(y + rand_choice_stride * s // 16, size - s)
                 if yy != size - s and xx != size - s:
-                    img = image[xx:xx + s, yy:yy + s]
-                    lab = label[xx:xx + s, yy:yy + s]
+                    img = image[xx:xx + s, yy:yy + s, :]
+                    lab = label[xx:xx + s, yy:yy + s, :]
 
                     if self.config.filter_blank and np.mean(lab) >= self.config.filter_threshold \
                             and cur_trial_count < self.case_trial_limit:
@@ -160,80 +153,6 @@ class ImageTransformationBatchLoader(BatchLoader):
 
         return img, lab
 
-'''
-class ImageTransformationBatchLoader(BatchLoader):
-    def create_dataset_from_generator(self):
-        dataset = tf.data.Dataset.from_tensor_slices(self.PATHS)
-        return dataset.interleave(lambda x: tf.data.Dataset.from_generator(self.parse_and_generate, output_types=(tf.float32, tf.float32),
-                                                                           args=(x,),
-                                                                           output_shapes=(tf.TensorShape([self.image_size, self.image_size, self.input_channels]),
-                                                                                          tf.TensorShape([self.image_size, self.image_size, self.label_channels]))),
-                                  cycle_length=self.config.n_threads, block_length=1, num_parallel_calls=self.config.n_threads)
-
-    def parse_and_generate(self, path):
-
-        s = self.config.image_size
-        stride = s
-
-        start, end = self.config.channel_start_index, self.config.channel_end_index
-        path = path.decode('UTF-8')
-
-        if self.config.is_mat:
-            # image = loadmat(path.replace('target', 'input'))['input'].astype(np.float32)[:, :, start:end]
-            image = loadmat(self.config.convert_inp_path_from_target(path))['input'].astype(np.float32)[:, :, start:end]
-            label = loadmat(path)['target'].astype(np.float32) / 255.0
-        else:
-            # image = np.transpose(np.load(path.replace('target', 'input')).astype(np.float32)[start:end, :, :], axes=[1, 2, 0])
-            image = np.transpose(np.load(self.config.convert_inp_path_from_target(path)).astype(np.float32)[start:end, :, :], axes=[1, 2, 0])
-            label = np.transpose(np.load(path).astype(np.float32), axes=[1, 2, 0]) / 255.0
-
-        if self.config.data_inpnorm:
-            normalize_vector = [1500, 1500, 1500, 1000]
-            normalize_vector = np.reshape(normalize_vector, [1, 1, 4])
-            image = image / normalize_vector
-
-        crop_edge = 30
-        image = image[crop_edge:-crop_edge, crop_edge:-crop_edge, :]
-        label = label[crop_edge:-crop_edge, crop_edge:-crop_edge, :]
-
-        size = image.shape[0]
-
-        x = 0
-        while True:
-            y = 0
-            while True:
-                rand_choice_stride = random.randint(0, 15)
-                xx = min(x + rand_choice_stride * s // 16, size - s)
-                yy = min(y + rand_choice_stride * s // 16, size - s)
-                if yy != size - s and xx != size - s:
-                    img = image[xx:xx + s, yy:yy + s]
-                    lab = label[xx:xx + s, yy:yy + s]
-
-                    yield (img.astype(np.float32), lab.astype(np.float32))
-
-                if yy == size - s:
-                    break
-                y += stride
-            if xx == size - s:
-                break
-            x += stride
-
-    def augment(self, img, lab):
-        imglab = tf.concat([img, lab], axis=-1)
-        imglab = tf.image.random_flip_left_right(imglab)
-
-        img = imglab[:, :, 0:self.config.num_slices]
-        lab = imglab[:, :, self.config.num_slices:self.config.num_slices+self.label_channels]
-
-        random_number = tf.random.uniform(shape=(), minval=0, maxval=4, dtype=tf.int32)
-        img = tf.image.rot90(img, k=random_number)
-        lab = tf.image.rot90(lab, k=random_number)
-
-        # img = img + tf.random.truncated_normal(mean=0, stddev=0.05,
-        #                                        shape=[self.image_size, self.image_size, self.config.num_slices])
-
-        return img, lab
-'''
 
 class ImageTransformationBatchLoader_Testing(BatchLoader):
 
@@ -254,12 +173,8 @@ class ImageTransformationBatchLoader_Testing(BatchLoader):
         path = path.decode('UTF-8')
 
         if self.config.is_mat:
-            image = loadmat(self.config.convert_inp_path_from_target(path))['input_tile'].astype(np.float32)[:2048, :2048, start:end]
-            label = loadmat(path)['target_tile'].astype(np.float32)[:2048, :2048, :]
-            # label =  np.append(label, np.zeros((3248,3248,1)), axis=2)
-            # image = loadmat(self.config.convert_inp_path_from_target(path))['input'].astype(np.float32)[:256, :256, start:end]
-            # label = loadmat(path)['input'].astype(np.float32)[:256, :256, :] / 255.0
-            # label =  np.append(label, np.zeros((256,256,1)), axis=2)
+            image = loadmat(self.config.convert_inp_path_from_target(path))['input'].astype(np.float32)[:2048, :2048, start:end]
+            label = loadmat(path)['target'].astype(np.float32)[:2048, :2048, :] / 255.0
         else:
             image = np.transpose(np.load(self.config.convert_inp_path_from_target(path)).astype(np.float32)[start:end, :, :], axes=[1, 2, 0])
             label = np.transpose(np.load(path).astype(np.float32), axes=[1, 2, 0]) / 255.0
@@ -270,9 +185,6 @@ class ImageTransformationBatchLoader_Testing(BatchLoader):
             image = image / normalize_vector
         elif self.config.data_inpnorm == 'norm_by_mean_std':
             image = (image - np.mean(image)) / (np.std(image) + 1e-5)
-            # image= image
-        elif self.config.data_inpnorm == 'scaling':
-            image = (image / 65535) * 2 - 1
 
         yield (image.astype(np.float32), label.astype(np.float32))
 

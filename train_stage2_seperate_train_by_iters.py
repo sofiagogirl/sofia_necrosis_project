@@ -3,6 +3,7 @@ import os
 import numpy as np
 
 import batch_utils
+import datetime
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -20,15 +21,14 @@ from matplotlib import pyplot as plt
 from losses import *
 from watcher import Watcher
 import ops
-import datetime
 
 
 def init_parameters():
     tc, vc = ConfigObj(), ConfigObj()
 
-    tc.model_path = 'G:/Regstain_Code/code/stage2_20220903_G&RSeperateTrain_initIter=0/'
+    tc.model_path = 'C:/Users/76/summer_necrosis_project/Necrotic_Weights'
     # tc.prev_checkpoint_path = None
-    tc.prev_checkpoint_path = 'stage2_20220903_G&RSeperateTrain_initIter=0/'
+    tc.prev_checkpoint_path = None
     tc.save_every_epoch = True
 
     # pretrained checkpoints to start from
@@ -41,15 +41,22 @@ def init_parameters():
     assert not (tc.prev_checkpoint_path
                 and (tc.G_warmstart_checkpoint or tc.D_warmstart_checkpoint or tc.R_warmstart_checkpoint))
 
-    tc.image_path_1 = 'L:/Pneumonia_Dataset/Second_reg/Training_exclude/AAW*/target/*.mat'
-    vc.image_path_1 = '' #'G:/Pneumonia_Dataset/Second_reg/Testing/AAW*/target/*.mat'
-    tc.image_path_2 = 'J:/Pneumonia_Dataset/Second_reg/Training/AAW*/target/*.mat'
-    vc.image_path_2 = 'J:/Pneumonia_Dataset/Second_reg/Testing/AAW*/target/*.mat'
+    tc.image_path_1 = 'G:/Project_Nectrotic/Data/ProcessingData/RegistrationRound2_crops/NPY/NonNecrotic/BF/*.npy'
+    vc.image_path_1 = 'G:/Project_Nectrotic/Data/ProcessingData/RegistrationRound2_crops/NPY/NonNecrotic/BF/*.npy' #'G:/Pneumonia_Dataset/Second_reg/Testing/AAW*/target/*.mat'
+    tc.image_path_2 = '' #'I:/Pneumonia_Dataset/Second_reg/Training/AAW*/target/*.mat'
+    vc.image_path_2 = '' #'I:/Pneumonia_Dataset/Second_reg/Testing/AAW*/target/*.mat'
+
+    # subject to change based on which samples we want for training/testing
+    # tc.train_samples = ['1', '2', '3'] 
+    # vc.test_samples = ['4']
+
+    tc.train_samples = ['1', '2'] 
+    vc.val_samples = ['3'] # leave out '4' for testing
 
     # def convert_inp_path_from_target(inp_path: str):
     #     return inp_path.replace('target_aligned_r2', 'input')
     def convert_inp_path_from_target(inp_path: str):
-        return inp_path.replace('target', 'input')
+        return inp_path.replace('BF', 'AF')
 
     tc.convert_inp_path_from_target = convert_inp_path_from_target
     vc.convert_inp_path_from_target = convert_inp_path_from_target
@@ -57,15 +64,15 @@ def init_parameters():
     # tc.valid_cases = ['22980*003', '18023*003']
     # tc.test_cases = ['16967*003', '10205*002']
 
-    tc.is_mat, vc.is_mat = True, True  # True for .mat, False for .npy
+    tc.is_mat, vc.is_mat = False, False  # True for .mat, False for .npy
     tc.data_inpnorm, vc.data_inpnorm = 'norm_by_mean_std', 'norm_by_mean_std'
     tc.channel_start_index, vc.channel_start_index = 0, 0
-    tc.channel_end_index, vc.channel_end_index = 2, 2  # exclusive
+    tc.channel_end_index, vc.channel_end_index = 4, 4  # exclusive
 
     # network and loss params
     tc.is_training, vc.is_training = True, False
     tc.image_size, vc.image_size = 256, 256
-    tc.num_slices, vc.num_slices = 2, 2
+    tc.num_slices, vc.num_slices = 4, 4
     tc.label_channels, vc.label_channels = 3, 3
     assert tc.channel_end_index - tc.channel_start_index == tc.num_slices
     assert vc.channel_end_index - vc.channel_start_index == vc.num_slices
@@ -103,7 +110,7 @@ def init_parameters():
     tc.case_filtering_y_subdivision = 2
     assert tc.case_filtering_x_subdivision >= 1 and tc.case_filtering_y_subdivision >= 1
     tc.case_filtering_starting_epoch = 2  # case filtering only when epoch >= case_filtering_starting_epoch
-    tc.case_filtering_cur_mean, tc.case_filtering_cur_stdev = 0.3757, 0.0654  # for lung elastic (256x256 patch)
+    tc.case_filtering_cur_mean, tc.case_filtering_cur_stdev = 0.3757, 0.0654  # for lung elastic (256x256 patch) ... need to change this?
     tc.case_filtering_nsigma = 2
     tc.case_filtering_recalc_every_eval = True
 
@@ -115,7 +122,7 @@ def init_parameters():
     tc.loss_mask, vc.loss_mask = False, False  # True, False
 
     # training resume parameters
-    tc.epoch_begin = 91
+    tc.epoch_begin = 0
     # this overrides tc.epoch_  begin the training schedule; tc.epoch_begin is required for logging
     # set it to None when not used
     tc.iter_begin =  None
@@ -206,8 +213,13 @@ if __name__ == '__main__':
 
     # train_images, valid_images, _ = Her2data_splitter(tc)
 
-    train_images = glob.glob(tc.image_path_1) + glob.glob(tc.image_path_2)
-    valid_images = glob.glob(vc.image_path_2)
+    all_images = glob.glob(tc.image_path_1)
+
+    # train_images = glob.glob(tc.image_path_1) + glob.glob(tc.image_path_2)
+    # valid_images = glob.glob(vc.image_path_2)
+    train_images = [f for f in all_images if os.path.basename(f)[0] in tc.train_samples]
+    valid_images = [f for f in all_images if os.path.basename(f)[0] in vc.val_samples]
+    
     random.shuffle(train_images)
     random.shuffle(valid_images)
 
@@ -459,7 +471,6 @@ if __name__ == '__main__':
                         tf.summary.scalar("mid/train_G_l1_loss_mean", train_G_l1_loss_mean, step = iter_D_count)
                         tf.summary.scalar("mid/train_R_total_loss_mean", train_R_total_loss_mean, step = iter_D_count)
                         writer.flush()
-
 
                     # update case filtering metrics
                     # if vaild_G_ncc_mean < 0.5:
