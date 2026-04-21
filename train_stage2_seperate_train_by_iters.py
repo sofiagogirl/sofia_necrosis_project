@@ -20,6 +20,7 @@ from matplotlib import pyplot as plt
 from losses import *
 from watcher import Watcher
 import ops
+import datetime
 
 
 def init_parameters():
@@ -195,6 +196,11 @@ if __name__ == '__main__':
 
     tf.io.gfile.mkdir(tc.model_path)
     tf.io.gfile.mkdir(tc.model_path + '/output')
+
+    # Tensorboard writer
+    
+    logdir = tc.model_path + "logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    writer = tf.summary.create_file_writer(logdir)
 
     # ======================= input pipeline =========================
 
@@ -438,6 +444,23 @@ if __name__ == '__main__':
                     train_R_total_loss_mean = np.mean(np.array(train_R_total_loss_list))
                     train_G_total_loss_list, train_G_l1_loss_list, train_R_total_loss_list = [], [], []
 
+                    # tensorboard calls 
+                    with writer.as_default():
+                        tf.summary.scalar("mid/valid_G_total_loss_mean", valid_G_total_loss_mean, step=iter_D_count)
+                        tf.summary.scalar("mid/valid_G_l1_loss_mean", valid_G_l1_loss_mean, step=iter_D_count)
+                        tf.summary.scalar("mid/valid_G_ssim_mean", valid_G_ssim_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/valid_G_psnr_mean", valid_G_psnr_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/vaild_G_ncc_mean", vaild_G_ncc_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/valid_G_ncc_std", valid_G_ncc_std, step = iter_D_count)
+                        tf.summary.scalar("mid/valid_D_real_loss_mean", valid_D_real_loss_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/valid_D_fake_loss_mean", valid_D_fake_loss_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/valid_R_total_loss_mean", valid_R_total_loss_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/train_G_total_loss_mean", train_G_total_loss_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/train_G_l1_loss_mean", train_G_l1_loss_mean, step = iter_D_count)
+                        tf.summary.scalar("mid/train_R_total_loss_mean", train_R_total_loss_mean, step = iter_D_count)
+                        writer.flush()
+
+
                     # update case filtering metrics
                     # if vaild_G_ncc_mean < 0.5:
                     if tc.case_filtering and tc.case_filtering_recalc_every_eval:
@@ -499,6 +522,22 @@ if __name__ == '__main__':
         train_G_l1_loss_mean = np.mean(np.array(train_G_l1_loss_list))
         train_R_total_loss_mean = np.mean(np.array(train_R_total_loss_list))
         train_G_total_loss_list, train_G_l1_loss_list, train_R_total_loss_list = [], [], []
+
+        # tensorboard calls 
+        with writer.as_default():
+            tf.summary.scalar("end/valid_G_total_loss_mean", valid_G_total_loss_mean, step=epoch)
+            tf.summary.scalar("end/valid_G_l1_loss_mean", valid_G_l1_loss_mean, step=epoch)
+            tf.summary.scalar("end/valid_G_ssim_mean", valid_G_ssim_mean, step = epoch)
+            tf.summary.scalar("end/valid_G_psnr_mean", valid_G_psnr_mean, step = epoch)
+            tf.summary.scalar("end/vaild_G_ncc_mean", vaild_G_ncc_mean, step = epoch)
+            tf.summary.scalar("end/valid_G_ncc_std", valid_G_ncc_std, step = epoch)
+            tf.summary.scalar("end/valid_D_real_loss_mean", valid_D_real_loss_mean, step = epoch)
+            tf.summary.scalar("end/valid_D_fake_loss_mean", valid_D_fake_loss_mean, step = epoch)
+            tf.summary.scalar("end/valid_R_total_loss_mean", valid_R_total_loss_mean, step = epoch)
+            tf.summary.scalar("end/train_G_total_loss_mean", train_G_total_loss_mean, step = epoch)
+            tf.summary.scalar("end/train_G_l1_loss_mean", train_G_l1_loss_mean, step = epoch)
+            tf.summary.scalar("end/train_R_total_loss_mean", train_R_total_loss_mean, step = epoch)
+            writer.flush()
 
         # update case filtering metrics
         # if vaild_G_ncc_mean < 0.5:
