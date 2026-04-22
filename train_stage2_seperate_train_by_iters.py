@@ -4,6 +4,7 @@ import numpy as np
 
 import batch_utils
 import datetime
+import random
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -26,7 +27,7 @@ import ops
 def init_parameters():
     tc, vc = ConfigObj(), ConfigObj()
 
-    tc.model_path = 'C:/Users/76/summer_necrosis_project/Necrotic_Weights'
+    tc.model_path = 'C:/Users/76/summer_necrosis_project/Weights'
     # tc.prev_checkpoint_path = None
     tc.prev_checkpoint_path = None
     tc.save_every_epoch = True
@@ -47,11 +48,11 @@ def init_parameters():
     vc.image_path_2 = '' #'I:/Pneumonia_Dataset/Second_reg/Testing/AAW*/target/*.mat'
 
     # subject to change based on which samples we want for training/testing
-    # tc.train_samples = ['1', '2', '3'] 
-    # vc.test_samples = ['4']
+    tc.train_samples = ['1', '2', '3'] 
+    tc.test_samples = ['4']
 
-    tc.train_samples = ['1', '2'] 
-    vc.val_samples = ['3'] # leave out '4' for testing
+    #tc.train_samples = ['1', '2'] 
+    #vc.val_samples = ['3'] # leave out '4' for testing
 
     # def convert_inp_path_from_target(inp_path: str):
     #     return inp_path.replace('target_aligned_r2', 'input')
@@ -217,8 +218,20 @@ if __name__ == '__main__':
 
     # train_images = glob.glob(tc.image_path_1) + glob.glob(tc.image_path_2)
     # valid_images = glob.glob(vc.image_path_2)
-    train_images = [f for f in all_images if os.path.basename(f)[0] in tc.train_samples]
-    valid_images = [f for f in all_images if os.path.basename(f)[0] in vc.val_samples]
+    train_and_val = [f for f in all_images if os.path.basename(f)[0] in tc.train_samples]
+
+    train_images = []
+    valid_images = []
+
+    random.shuffle(train_and_val)
+    for i in range(int(len(train_and_val)*0.85)):
+        train_images.append(train_and_val[i])
+
+    for i in range(int(len(train_and_val)*0.85), len(train_and_val)):
+        valid_images.append(train_and_val[i])
+
+    #train_images = [f for f in all_images if os.path.basename(f)[0]  in tc.train_samples]
+    #valid_images = [f for f in all_images if os.path.basename(f)[0] in tc.train_samples]
     
     random.shuffle(train_images)
     random.shuffle(valid_images)
