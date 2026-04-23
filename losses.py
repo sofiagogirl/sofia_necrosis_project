@@ -177,6 +177,9 @@ def loss_G(D_fake_output, G_output, target, train_config, cur_epoch=None):
                 train_config.epoch_filtering_ratio.append(
                     1 - tf.reduce_sum(cur_mask) / cur_mask.get_shape().as_list()[0])
 
+                n_patches = (train_config.case_filtering_x_subdivision
+                             * train_config.case_filtering_y_subdivision)
+
                 cur_index = tf.squeeze(tf.where(cur_mask))
                 cur_index_image = cur_index // n_patches
                 cur_index_image = tf.unique(cur_index_image)[0]  
@@ -184,8 +187,6 @@ def loss_G(D_fake_output, G_output, target, train_config, cur_epoch=None):
                 target = tf.gather(target, cur_index_image, axis=0)
 
                 # remove similar ratio of images from D to keep G-D step ratio consistent
-                n_patches = (train_config.case_filtering_x_subdivision
-                             * train_config.case_filtering_y_subdivision)
                 bsz = G_output_clipped.get_shape().as_list()[0]
                 cur_mask_by_case = tf.reduce_sum(tf.reshape(cur_mask, [bsz, n_patches]), axis=-1)
                 cur_D_index = tf.math.top_k(
